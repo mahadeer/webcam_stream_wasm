@@ -27,8 +27,10 @@ features = [
   'CanvasRenderingContext2d',
   'ImageCapture',
   'VideoStreamTrack',
+  'MediaStreamTrack',
   'MediaDevices',
   'MediaStreamConstraints',
   'MediaStream',
-  'HtmlMediaElement'
+  'HtmlMediaElement',
+  'Blob'
 ]

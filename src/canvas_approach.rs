@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{
-    CanvasRenderingContext2d, HtmlCanvasElement, HtmlElement, ImageCapture, MediaStream,
-    MediaStreamConstraints, VideoStreamTrack,
+    Blob, CanvasRenderingContext2d, HtmlCanvasElement, HtmlElement, ImageCapture, MediaStream,
+    MediaStreamConstraints, MediaStreamTrack, VideoStreamTrack,
 };
 
 #[wasm_bindgen]
@@ -39,6 +39,7 @@ pub fn run() -> Result<(), JsValue> {
     container.append_child(&canvas_elem)?;
 
     let window_ref = window.clone();
+    let window_ref_2 = window.clone();
     let context = canvas_elem
         .get_context("2d")
         .unwrap()
@@ -46,23 +47,30 @@ pub fn run() -> Result<(), JsValue> {
         .dyn_into::<CanvasRenderingContext2d>()
         .unwrap();
 
-    let grab_frame_clsr =
-        Closure::wrap(Box::new(move |img_capture: JsValue| {
-            let image_capture = img_capture.dyn_into::<ImageCapture>().unwrap();
-            image_capture.take_photo();
-        }) as Box<dyn FnMut(JsValue)>);
+    let on_photo_clsr = Closure::wrap(Box::new(move |blob_value: JsValue| {
+        let blob = blob_value.dyn_into::<Blob>().unwrap();
+        // let request = window_ref_2.create_image_bitmap_with_blob(&blob).unwrap();
+    }) as Box<dyn FnMut(JsValue)>);
+    let take_photo_clsr = Closure::wrap(Box::new(move |img_capture: JsValue| {
+        let image_capture = img_capture.dyn_into::<ImageCapture>().unwrap();
+        image_capture.take_photo().unwrap();
+    }) as Box<dyn FnMut(JsValue)>);
     let resolve_clsr = Closure::wrap(Box::new(move |media_stream: JsValue| {
         let media_streaming_parsed: MediaStream =
             MediaStream::new_with_tracks(&media_stream).unwrap();
         let track_arr = media_streaming_parsed.get_video_tracks();
         let track = track_arr.shift();
-        let video_stream = track.dyn_into::<VideoStreamTrack>().unwrap();
-        let image_capture = ImageCapture::new(&video_stream).unwrap();
-        window_ref.set_interval_with_callback_and_timeout_and_arguments_1(
-            grab_frame_clsr.as_ref().unchecked_ref(),
-            200,
-            &JsValue::from(image_capture),
-        ).unwrap();
+        log_obj(JsValue::from(track.clone()));
+        let video_stream = track.dyn_into::<MediaStreamTrack>().unwrap();
+        let image_capture = ImageCapture::new(&video_stream.unchecked_ref()).unwrap();
+        image_capture.set_onphoto(Some(&on_photo_clsr.as_ref().unchecked_ref()));
+        window_ref
+            .set_interval_with_callback_and_timeout_and_arguments_1(
+                take_photo_clsr.as_ref().unchecked_ref(),
+                200,
+                &JsValue::from(image_capture),
+            )
+            .unwrap();
     }) as Box<dyn FnMut(JsValue)>);
     let reject_clsr = Closure::wrap(Box::new(move |err: JsValue| {
         log_obj(err);
